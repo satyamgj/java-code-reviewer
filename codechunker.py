@@ -2,6 +2,7 @@ import os
 import sys
 import javalang
 import chromadb
+import hashlib
 
 # --- Argument Handling ---
 # Usage: python crawler.py "/path/to/project" [--reset]
@@ -33,6 +34,48 @@ def get_java_files(root_dir):
             if file.endswith(".java"):
                 yield os.path.join(root, file)
 
+# def parse_java_file(file_path):
+#     with open(file_path, 'r', encoding='utf-8') as f:
+#         content = f.read()
+#     try:
+#         tree = javalang.parse.parse(content)
+#     except:
+#         return []
+
+#     chunks = []
+#     for path, node in tree.filter(javalang.tree.ClassDeclaration):
+#         class_name = node.name
+#         layer = "UNKNOWN"
+#         annotations = [anno.name for anno in node.annotations]
+#         if "RestController" in annotations: layer = "CONTROLLER"
+#         elif "Service" in annotations: layer = "SERVICE"
+#         elif "Repository" in annotations: layer = "REPOSITORY"
+#         elif "Entity" in annotations: layer = "ENTITY"
+
+#         for method in node.methods:
+#             method_name = method.name
+#             calls_to = []
+#             for _, call in method.filter(javalang.tree.MethodInvocation):
+#                 calls_to.append(f"{call.qualifier or 'this'}.{call.member}")
+
+#             doc_text = f"Class: {class_name} ({layer})\nMethod: {method_name}\nCode:\n{content[method.position.line:]}"
+
+#             metadata = {
+#                 "file_path": file_path,
+#                 "class_name": class_name,
+#                 "method_name": method_name,
+#                 "layer": layer,
+#                 "calls_to": ",".join(calls_to[:10]),
+#                 "annotations": ",".join(annotations)
+#             }
+            
+#             chunks.append({
+#                 "id": f"{class_name}_{method_name}",
+#                 "text": doc_text,
+#                 "metadata": metadata
+#             })
+#     return chunks
+
 def parse_java_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
@@ -46,6 +89,7 @@ def parse_java_file(file_path):
         class_name = node.name
         layer = "UNKNOWN"
         annotations = [anno.name for anno in node.annotations]
+        
         if "RestController" in annotations: layer = "CONTROLLER"
         elif "Service" in annotations: layer = "SERVICE"
         elif "Repository" in annotations: layer = "REPOSITORY"
@@ -53,12 +97,16 @@ def parse_java_file(file_path):
 
         for method in node.methods:
             method_name = method.name
+            line_no = method.position.line
             calls_to = []
             for _, call in method.filter(javalang.tree.MethodInvocation):
                 calls_to.append(f"{call.qualifier or 'this'}.{call.member}")
 
-            doc_text = f"Class: {class_name} ({layer})\nMethod: {method_name}\nCode:\n{content[method.position.line:]}"
+            doc_text = f"Class: {class_name} ({layer})\nMethod: {method_name}\nCode:\n{content[line_no:]}"
 
+            # Create a unique hash of the file path and line number to prevent duplicates
+            unique_suffix = hashlib.md5(f"{file_path}_{line_no}".encode()).hexdigest()[:8]
+            
             metadata = {
                 "file_path": file_path,
                 "class_name": class_name,
@@ -69,7 +117,8 @@ def parse_java_file(file_path):
             }
             
             chunks.append({
-                "id": f"{class_name}_{method_name}",
+                # New ID format: ClassName_MethodName_ShortHash
+                "id": f"{class_name}_{method_name}_{unique_suffix}",
                 "text": doc_text,
                 "metadata": metadata
             })
