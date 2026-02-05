@@ -1,0 +1,12 @@
+# Vector Database
+chromadb
+
+# Java Static Analysis & Parsing
+javalang
+
+# LLM & AI Orchestration
+openai
+
+# Utilities
+argparse
+tqdm
